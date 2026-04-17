@@ -3,8 +3,11 @@ import { Place, PlaceStatus } from './types'
 import { v4 as uuidv4 } from 'uuid'
 
 const STORAGE_KEY    = 'kaki-places'
-const STORAGE_VERSION = 'v5'
+const STORAGE_VERSION = 'v6'
 const VERSION_KEY    = 'kaki-version'
+
+// IDs des anciens restaurants démo à purger
+const OLD_IDS = new Set(['demo-1','demo-2','demo-3','demo-4','demo-5','demo-6'])
 
 type NewPlace = Omit<Place, 'id' | 'status' | 'dateAdded' | 'dateVisited'>
 type PlaceUpdate = Partial<Omit<Place, 'id' | 'status' | 'dateAdded'>>
@@ -57,14 +60,17 @@ export function usePlaces() {
   const [places, setPlaces] = useState<Place[]>(() => {
     try {
       const version = localStorage.getItem(VERSION_KEY)
-      if (version !== STORAGE_VERSION) {
-        // New version → reset to fresh demo data
+      const stored  = localStorage.getItem(STORAGE_KEY)
+      const parsed: Place[] = stored ? JSON.parse(stored) : []
+
+      // Reset si mauvaise version OU si les vieilles données sont encore là
+      const hasOldData = parsed.some(p => OLD_IDS.has(p.id))
+      if (version !== STORAGE_VERSION || hasOldData || parsed.length === 0) {
         localStorage.setItem(VERSION_KEY, STORAGE_VERSION)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO))
         return DEMO
       }
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) return JSON.parse(stored)
-      return DEMO
+      return parsed
     } catch {
       return DEMO
     }
