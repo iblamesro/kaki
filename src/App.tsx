@@ -12,6 +12,7 @@ import RestaurantList from './components/RestaurantList'
 import RestaurantDetail from './components/RestaurantDetail'
 import StatsView from './components/StatsView'
 import CeSoirModal from './components/CeSoirModal'
+import FriendMapView from './components/FriendMapView'
 
 type Screen =
   | { name: 'landing' }
@@ -20,6 +21,7 @@ type Screen =
   | { name: 'list' }
   | { name: 'detail'; placeId: string }
   | { name: 'stats' }
+  | { name: 'friends' }
 
 type NewPlace = Omit<Place, 'id' | 'status' | 'dateAdded' | 'dateVisited'>
 
@@ -85,6 +87,16 @@ export default function App() {
   // ── Stats ─────────────────────────────────────────────────────────────────────
   if (current.name === 'stats') {
     return <StatsView places={places} onBack={pop} onGoHome={goHome} />
+  }
+
+  // ── Friends ───────────────────────────────────────────────────────────────────
+  if (current.name === 'friends') {
+    return (
+      <FriendMapView
+        onBack={pop}
+        onAddToMyList={p => addPlace({ name: p.name, address: p.address, category: p.category, lat: p.lat, lng: p.lng, notes: p.notes, coverPhoto: p.coverPhoto, tags: p.tags, description: p.description })}
+      />
+    )
   }
 
   // ── List ──────────────────────────────────────────────────────────────────────
@@ -160,6 +172,7 @@ export default function App() {
         <MapView
           places={places}
           onPlaceClick={p => { setPickedId(null); setMapSelected(p) }}
+          onOpenFriends={() => push({ name: 'friends' })}
         />
 
         {/* Kaki choisit */}

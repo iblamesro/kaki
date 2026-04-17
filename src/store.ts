@@ -3,7 +3,7 @@ import { Place, PlaceStatus } from './types'
 import { v4 as uuidv4 } from 'uuid'
 
 const STORAGE_KEY    = 'kaki-places'
-const STORAGE_VERSION = 'v6'
+const STORAGE_VERSION = 'v7'
 const VERSION_KEY    = 'kaki-version'
 
 // IDs des anciens restaurants démo à purger
@@ -23,6 +23,7 @@ const DEMO: Place[] = [
     status: 'liked',
     dateAdded: '2025-03-10T19:00:00Z',
     dateVisited: '2025-03-10T19:00:00Z',
+    coverPhoto: '/emsherif.jpg',
     description: 'La grande table libanaise de Paris. Mezze d\'exception, manakish dorés, kibbeh aux amandes — une générosité rare dans un cadre raffiné.',
     tags: ['libanais', 'mezze', 'gastronomique'],
     rating: 5,
@@ -36,6 +37,7 @@ const DEMO: Place[] = [
     status: 'liked',
     dateAdded: '2025-03-22T20:00:00Z',
     dateVisited: '2025-03-22T20:00:00Z',
+    coverPhoto: '/hando.jpg',
     description: 'Collaboration Parisien Mangolia x Mira Mikati. Wagyu en nigiri servi au comptoir, champagne Moët en accord. Entre Paris et Tokyo.',
     tags: ['japonais', 'wagyu', 'comptoir', 'sushi'],
     rating: 5,
@@ -49,6 +51,7 @@ const DEMO: Place[] = [
     status: 'liked',
     dateAdded: '2025-04-05T13:00:00Z',
     dateVisited: '2025-04-05T13:00:00Z',
+    coverPhoto: '/specimen.jpg',
     description: 'Le burger parisien qui mérite son nom. Pain brioché, viande maturée, frites maison. Casual mais soigné.',
     tags: ['burger', 'casual', 'déjeuner'],
     rating: 4,

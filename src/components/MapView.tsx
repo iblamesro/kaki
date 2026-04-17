@@ -6,26 +6,19 @@ import { Place } from '../types'
 export interface MapViewProps {
   places: Place[]
   onPlaceClick: (place: Place) => void
+  onOpenFriends: () => void
 }
 
-const CAT_EMOJI: Record<string, string> = {
-  Restaurant: '🍽',
-  Café: '☕',
-  Bar: '🍷',
-  Boutique: '🛍',
-  Activité: '✦',
-  Autre: '◎',
+const STATUS_COLORS = {
+  wishlist: { fill: '#F4EFE2', stroke: '#262F18' },
+  liked:    { fill: '#4A7A50', stroke: '#3A5E3F' },
+  disliked: { fill: '#7A3A3A', stroke: '#5E3030' },
 }
 
 function pinSVG(status: Place['status']) {
-  const colors = {
-    wishlist: { fill: '#F4EFE2', stroke: '#262F18', sw: 1.5 },
-    liked:    { fill: '#4A7A50', stroke: '#3A5E3F', sw: 1.5 },
-    disliked: { fill: '#B0A898', stroke: '#8A8278', sw: 1   },
-  }
-  const c = colors[status]
+  const c = STATUS_COLORS[status]
   return `<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="7" cy="7" r="5.5" fill="${c.fill}" stroke="${c.stroke}" stroke-width="${c.sw}"/>
+    <circle cx="7" cy="7" r="5.5" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>
   </svg>`
 }
 
@@ -36,11 +29,6 @@ function createIcon(place: Place): L.DivIcon {
     iconSize: [14, 14],
     iconAnchor: [7, 7],
   })
-}
-
-function shortAddr(address: string) {
-  const parts = address.split(',')
-  return parts.slice(0, 2).join(',').trim()
 }
 
 interface MarkersProps {
@@ -57,52 +45,11 @@ function Markers({ places, onPlaceClick }: MarkersProps) {
     markersRef.current.clear()
 
     places.forEach(place => {
-      const icon = createIcon(place)
-      const marker = L.marker([place.lat, place.lng], { icon })
-
+      const marker = L.marker([place.lat, place.lng], { icon: createIcon(place) })
       marker.on('click', e => {
         L.DomEvent.stopPropagation(e)
-
-        const popup = L.popup({
-          closeButton: false,
-          className: 'kaki-popup-container',
-          maxWidth: 260,
-          autoPan: true,
-          autoPanPaddingTopLeft: L.point(20, 80),
-          autoPanPaddingBottomRight: L.point(20, 120),
-          offset: L.point(0, -10),
-        })
-          .setLatLng([place.lat, place.lng])
-          .setContent(`
-            <div class="kaki-popup">
-              <p class="kaki-popup-cat">${CAT_EMOJI[place.category]} ${place.category}</p>
-              <h3 class="kaki-popup-name">${place.name}</h3>
-              <p class="kaki-popup-addr">${shortAddr(place.address)}</p>
-              <div class="kaki-popup-footer">
-                <button class="kaki-popup-btn" id="popup-open-${place.id}">
-                  Voir les détails
-                </button>
-                <button class="kaki-popup-close" id="popup-close-${place.id}">×</button>
-              </div>
-            </div>
-          `)
-          .openOn(map)
-
-        popup.on('add', () => {
-          const openBtn = document.getElementById(`popup-open-${place.id}`)
-          const closeBtn = document.getElementById(`popup-close-${place.id}`)
-          if (openBtn) {
-            openBtn.addEventListener('click', () => {
-              onPlaceClick(place)
-              map.closePopup()
-            })
-          }
-          if (closeBtn) {
-            closeBtn.addEventListener('click', () => map.closePopup())
-          }
-        })
+        onPlaceClick(place)
       })
-
       marker.addTo(map)
       markersRef.current.set(place.id, marker)
     })
@@ -129,11 +76,7 @@ function LocationButton() {
         const { latitude: lat, longitude: lng } = pos.coords
         if (dotRef.current) dotRef.current.remove()
         dotRef.current = L.circleMarker([lat, lng], {
-          radius: 8,
-          fillColor: '#3B82F6',
-          fillOpacity: 1,
-          color: '#fff',
-          weight: 2,
+          radius: 8, fillColor: '#3B82F6', fillOpacity: 1, color: '#fff', weight: 2,
         }).addTo(map)
         map.flyTo([lat, lng], 16, { duration: 1.2 })
         setLocating(false)
@@ -157,7 +100,7 @@ function LocationButton() {
   )
 }
 
-export default function MapView({ places, onPlaceClick }: MapViewProps) {
+export default function MapView({ places, onPlaceClick, onOpenFriends }: MapViewProps) {
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <MapContainer
@@ -174,6 +117,18 @@ export default function MapView({ places, onPlaceClick }: MapViewProps) {
         <Markers places={places} onPlaceClick={onPlaceClick} />
         <LocationButton />
       </MapContainer>
+
+      {/* Friend search button */}
+      <button onClick={onOpenFriends}
+        style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 500,
+          width: '40px', height: '40px', borderRadius: '12px',
+          background: 'var(--surface)', border: '1px solid var(--border-2)',
+          color: 'var(--cream-dim)', fontSize: '16px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
+        title="Chercher un ami">
+        👤
+      </button>
     </div>
   )
 }

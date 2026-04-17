@@ -104,36 +104,40 @@ export default function PlaceCard({ place, isPicked = false, onClose, onViewDeta
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* Heart */}
-            <button onClick={() => onToggleHeart(place.id)}
-              style={{ width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0,
-                background: place.hearted ? 'rgba(224,92,106,0.15)' : 'var(--surface-3)',
-                border: `1px solid ${place.hearted ? 'rgba(224,92,106,0.4)' : 'var(--border-2)'}`,
-                fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {place.hearted ? '♥' : '♡'}
-            </button>
-
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button onClick={() => onViewDetail(place)} className="font-ui font-medium"
-              style={{ flex: 1, padding: '10px 8px', borderRadius: '12px',
+              style={{ width: '100%', padding: '11px', borderRadius: '12px',
                 background: 'var(--surface-3)', color: 'var(--cream)',
                 border: '1px solid var(--border-2)', fontSize: '12px', letterSpacing: '0.04em', cursor: 'pointer' }}>
               Voir la fiche →
             </button>
-
-            {place.status === 'wishlist' ? (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {/* Heart */}
+              <button onClick={() => onToggleHeart(place.id)}
+                style={{ flex: 1, height: '40px', borderRadius: '12px',
+                  background: place.hearted ? 'rgba(224,92,106,0.15)' : 'var(--surface-3)',
+                  border: `1px solid ${place.hearted ? 'rgba(224,92,106,0.4)' : 'var(--border-2)'}`,
+                  fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: place.hearted ? '#e05c6a' : 'var(--muted)' }}>
+                {place.hearted ? '♥' : '♡'}
+              </button>
+              {/* Bof */}
+              <button onClick={() => onUpdateStatus(place.id, 'disliked')} className="font-ui font-medium"
+                style={{ flex: 1, height: '40px', borderRadius: '12px',
+                  background: place.status === 'disliked' ? 'rgba(156,48,48,0.15)' : 'var(--surface-3)',
+                  border: `1px solid ${place.status === 'disliked' ? 'rgba(156,48,48,0.4)' : 'var(--border-2)'}`,
+                  color: 'var(--disliked)', fontSize: '13px', cursor: 'pointer' }}>
+                ✕ Bof
+              </button>
+              {/* Aimé */}
               <button onClick={() => onUpdateStatus(place.id, 'liked')} className="font-ui font-semibold"
-                style={{ flex: 1, padding: '10px 8px', borderRadius: '12px', background: 'var(--liked)',
-                  color: '#fff', border: 'none', fontSize: '12px', letterSpacing: '0.04em', cursor: 'pointer' }}>
-                J'ai aimé ✓
+                style={{ flex: 1, height: '40px', borderRadius: '12px',
+                  background: place.status === 'liked' ? 'var(--liked)' : 'rgba(38,128,66,0.12)',
+                  border: `1px solid ${place.status === 'liked' ? 'transparent' : 'rgba(38,128,66,0.35)'}`,
+                  color: place.status === 'liked' ? '#fff' : 'var(--liked)', fontSize: '13px', cursor: 'pointer' }}>
+                ✓ Aimé
               </button>
-            ) : (
-              <button onClick={() => onUpdateStatus(place.id, 'wishlist')} className="font-ui font-medium"
-                style={{ flex: 1, padding: '10px 8px', borderRadius: '12px', background: 'var(--surface-3)',
-                  color: 'var(--cream-dim)', border: '1px solid var(--border-2)', fontSize: '12px', letterSpacing: '0.04em', cursor: 'pointer' }}>
-                ↩ À tester
-              </button>
-            )}
+            </div>
           </div>
         </div>
       </div>
