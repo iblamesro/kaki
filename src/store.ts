@@ -3,7 +3,7 @@ import { Place, PlaceStatus } from './types'
 import { v4 as uuidv4 } from 'uuid'
 
 const STORAGE_KEY    = 'kaki-places'
-const STORAGE_VERSION = 'v4'
+const STORAGE_VERSION = 'v5'
 const VERSION_KEY    = 'kaki-version'
 
 type NewPlace = Omit<Place, 'id' | 'status' | 'dateAdded' | 'dateVisited'>
@@ -12,11 +12,11 @@ type PlaceUpdate = Partial<Omit<Place, 'id' | 'status' | 'dateAdded'>>
 // ── Vos adresses ──────────────────────────────────────────────────────────────
 const DEMO: Place[] = [
   {
-    id: 'demo-1',
+    id: 'place-emsherif',
     name: 'Em Sherif',
-    address: '14 Rue de Marignan, 75008 Paris',
+    address: '4 Rue de Marignan, 75008 Paris',
     category: 'Restaurant',
-    lat: 48.8704, lng: 2.3076,
+    lat: 48.8709, lng: 2.3072,
     status: 'liked',
     dateAdded: '2025-03-10T19:00:00Z',
     dateVisited: '2025-03-10T19:00:00Z',
@@ -25,24 +25,24 @@ const DEMO: Place[] = [
     rating: 5,
   },
   {
-    id: 'demo-2',
+    id: 'place-hando',
     name: 'Hando',
-    address: '48 Rue de Richelieu, 75001 Paris',
+    address: '6 Rue du Faubourg Montmartre, 75009 Paris',
     category: 'Restaurant',
-    lat: 48.8645, lng: 2.3378,
+    lat: 48.8742, lng: 2.3453,
     status: 'liked',
     dateAdded: '2025-03-22T20:00:00Z',
     dateVisited: '2025-03-22T20:00:00Z',
-    description: 'Collaboration Parisien Mangolia x Mira Mikati. Sushis de wagyu servis au comptoir, champagne Moët en accord. Une expérience unique entre Paris et Tokyo.',
-    tags: ['japonais', 'sushi', 'wagyu', 'comptoir'],
+    description: 'Collaboration Parisien Mangolia x Mira Mikati. Wagyu en nigiri servi au comptoir, champagne Moët en accord. Entre Paris et Tokyo.',
+    tags: ['japonais', 'wagyu', 'comptoir', 'sushi'],
     rating: 5,
   },
   {
-    id: 'demo-3',
+    id: 'place-specimen',
     name: 'Spécimen',
-    address: '1 Rue Biot, 75017 Paris',
+    address: '10 Rue Bichat, 75010 Paris',
     category: 'Restaurant',
-    lat: 48.8840, lng: 2.3240,
+    lat: 48.8699, lng: 2.3622,
     status: 'liked',
     dateAdded: '2025-04-05T13:00:00Z',
     dateVisited: '2025-04-05T13:00:00Z',
