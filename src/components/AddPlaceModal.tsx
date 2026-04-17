@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Place, PlaceCategory, NominatimResult } from '../types'
 
@@ -36,6 +36,10 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
   const [searching,    setSearching]    = useState(false)
   const [showSug,      setShowSug]      = useState(false)
   const [tab,          setTab]          = useState<'info' | 'critique'>('info')
+  const [igUrl,        setIgUrl]        = useState('')
+  const [igLoading,    setIgLoading]    = useState(false)
+  const [igError,      setIgError]      = useState('')
+  const [igPreview,    setIgPreview]    = useState<{ thumb: string; caption: string } | null>(null)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const search = useCallback(async (q: string) => {
@@ -62,6 +66,51 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
     setSuggestions([])
     setShowSug(false)
   }
+
+  const importFromInstagram = useCallback(async (url: string) => {
+    if (!url.includes('instagram.com')) { setIgError('URL Instagram invalide'); return }
+    setIgLoading(true); setIgError(''); setIgPreview(null)
+    try {
+      // Fetch Open Graph tags via CORS proxy
+      const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+      const res = await fetch(proxy)
+      const data = await res.json()
+      const html: string = data.contents ?? ''
+
+      const getTag = (prop: string) => {
+        const m = html.match(new RegExp(`<meta[^>]+(?:property|name)="${prop}"[^>]+content="([^"]+)"`, 'i'))
+          || html.match(new RegExp(`<meta[^>]+content="([^"]+)"[^>]+(?:property|name)="${prop}"`, 'i'))
+        return m ? m[1].replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&quot;/g, '"') : ''
+      }
+
+      const ogTitle   = getTag('og:title')
+      const ogImage   = getTag('og:image')
+      const ogDesc    = getTag('og:description')
+      const caption   = ogDesc || ogTitle
+
+      if (!ogImage && !caption) { setIgError('Impossible de lire ce post (compte privé ?)'); setIgLoading(false); return }
+
+      // Try to extract restaurant name: first line of caption before hashtags/newline
+      const firstLine = caption.split(/\n|#/)[0].trim()
+      const guessedName = firstLine.length > 2 && firstLine.length < 60 ? firstLine : ''
+
+      setIgPreview({ thumb: ogImage, caption })
+      if (ogImage && !coverPhoto) setCoverPhoto(ogImage)
+      if (guessedName && !name) setName(guessedName)
+      if (!instagram) setInstagram(url)
+      setIgLoading(false)
+    } catch {
+      setIgError('Erreur réseau — réessaie')
+      setIgLoading(false)
+    }
+  }, [coverPhoto, name, instagram])
+
+  // Debounced trigger when igUrl changes
+  useEffect(() => {
+    if (!igUrl.includes('instagram.com/')) return
+    const t = setTimeout(() => importFromInstagram(igUrl), 600)
+    return () => clearTimeout(t)
+  }, [igUrl, importFromInstagram])
 
   const handleSubmit = () => {
     if (!name.trim()) return
@@ -174,6 +223,39 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
 
         {tab === 'info' ? (
           <>
+            {/* ── Instagram import ── */}
+            <div style={{ background: 'var(--surface-3)', borderRadius: '12px', padding: '12px 14px', border: '1px solid var(--border-2)' }}>
+              <label style={{ ...lbl, marginBottom: '8px' }}>
+                <span style={{ marginRight: '6px' }}>📎</span> Importer depuis Instagram
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  value={igUrl}
+                  onChange={e => { setIgUrl(e.target.value); setIgError('') }}
+                  placeholder="Colle un lien Instagram…"
+                  style={{ ...inp, background: 'var(--surface-2)', paddingRight: igLoading ? '36px' : '14px' }}
+                />
+                {igLoading && (
+                  <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)' }}>…</span>
+                )}
+              </div>
+              {igError && <p className="font-ui" style={{ fontSize: '11px', color: 'var(--disliked)', marginTop: '6px' }}>{igError}</p>}
+              {igPreview && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  {igPreview.thumb && (
+                    <img src={igPreview.thumb} alt="" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="font-ui" style={{ fontSize: '10px', color: 'var(--liked)', marginBottom: '3px' }}>✓ Infos importées</p>
+                    <p className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.4,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {igPreview.caption}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Name */}
             <div>
               <label style={lbl}>Nom *</label>
