@@ -45,7 +45,7 @@ const STATUS_COLORS = {
   disliked: { fill: '#7A3A3A', stroke: '#5E3030' },
 }
 
-function FriendMarkers({ places }: { places: FriendData['places'] }) {
+function FriendMarkers({ places, onSelect }: { places: FriendData['places']; onSelect: (p: FriendData['places'][0]) => void }) {
   const map = useMap()
   const ref  = useRef<L.Marker[]>([])
 
@@ -59,6 +59,7 @@ function FriendMarkers({ places }: { places: FriendData['places'] }) {
         className: 'kaki-pin', iconSize: [14, 14], iconAnchor: [7, 7],
       })
       const m = L.marker([p.lat, p.lng], { icon }).addTo(map)
+      m.on('click', e => { L.DomEvent.stopPropagation(e); onSelect(p) })
       ref.current.push(m)
     })
     if (places.length > 0) {
@@ -66,7 +67,7 @@ function FriendMarkers({ places }: { places: FriendData['places'] }) {
       map.fitBounds(bounds, { padding: [40, 40] })
     }
     return () => { ref.current.forEach(m => m.remove()); ref.current = [] }
-  }, [places, map])
+  }, [places, map, onSelect])
 
   return null
 }
@@ -162,7 +163,7 @@ export default function FriendMapView({ onBack, onAddToMyList }: Props) {
               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               maxZoom={19}
             />
-            <FriendMarkers places={friend.places} />
+            <FriendMarkers places={friend.places} onSelect={setSelected} />
           </MapContainer>
         ) : (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
@@ -175,6 +176,54 @@ export default function FriendMapView({ onBack, onAddToMyList }: Props) {
             </p>
           </div>
         )}
+
+        {/* Selected place mini-card */}
+        <AnimatePresence>
+          {selected && (
+            <motion.div
+              key={selected.id}
+              initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              style={{ position: 'absolute', bottom: '130px', left: '14px', right: '14px', zIndex: 20,
+                background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border-2)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+              {selected.coverPhoto && (
+                <div style={{ height: '90px', overflow: 'hidden', position: 'relative' }}>
+                  <img src={selected.coverPhoto} alt={selected.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, var(--surface) 100%)' }} />
+                  <button onClick={() => setSelected(null)}
+                    style={{ position: 'absolute', top: '8px', right: '8px', width: '26px', height: '26px', borderRadius: '50%',
+                      background: 'rgba(13,14,11,0.6)', border: 'none', color: 'var(--cream-dim)', fontSize: '14px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                </div>
+              )}
+              <div style={{ padding: selected.coverPhoto ? '6px 14px 14px' : '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {!selected.coverPhoto && (
+                    <button onClick={() => setSelected(null)}
+                      style={{ float: 'right', background: 'none', border: 'none', color: 'var(--muted)', fontSize: '16px', cursor: 'pointer' }}>×</button>
+                  )}
+                  <p className="font-display font-medium" style={{ fontSize: '1.05rem', color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1.15, marginBottom: '3px' }}>
+                    {selected.name}
+                  </p>
+                  <p className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '10px' }}>
+                    {selected.category} · {selected.status === 'liked' ? 'Aimé par ' : 'Souhaité par '}{friend?.name}
+                    {selected.rating && <span style={{ color: 'var(--accent)', marginLeft: '6px' }}>{'★'.repeat(selected.rating)}</span>}
+                  </p>
+                  {added.has(selected.id) ? (
+                    <p className="font-ui font-medium" style={{ fontSize: '11px', color: 'var(--liked)' }}>✓ Dans ta liste</p>
+                  ) : (
+                    <button onClick={() => handleAdd(selected)} className="font-ui font-medium"
+                      style={{ padding: '8px 16px', borderRadius: '10px', background: 'var(--cream)',
+                        color: 'var(--bg)', border: 'none', fontSize: '11px', cursor: 'pointer', letterSpacing: '0.04em' }}>
+                      + Ajouter à ma liste
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Friend's place list */}
         {friend && (

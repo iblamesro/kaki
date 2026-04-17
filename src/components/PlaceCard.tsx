@@ -38,7 +38,7 @@ export default function PlaceCard({ place, isPicked = false, onClose, onViewDeta
       exit={{   y: 40, opacity: 0, scale: 0.96 }}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       className="absolute z-[900]"
-      style={{ bottom: '96px', left: '14px', right: '14px' }}
+      style={{ bottom: '88px', left: '18px', right: '18px' }}
     >
       <div style={{
         background: 'var(--surface)',
@@ -49,7 +49,7 @@ export default function PlaceCard({ place, isPicked = false, onClose, onViewDeta
       }}>
         {/* Cover photo — compacte */}
         {hasCover && (
-          <div style={{ position: 'relative', height: '140px', flexShrink: 0 }}>
+          <div style={{ position: 'relative', height: '100px', flexShrink: 0 }}>
             <img src={place.coverPhoto} alt={place.name}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -65,7 +65,7 @@ export default function PlaceCard({ place, isPicked = false, onClose, onViewDeta
         )}
 
         {/* Body */}
-        <div style={{ padding: hasCover ? '8px 16px 16px' : '16px 16px 16px' }}>
+        <div style={{ padding: hasCover ? '8px 14px 14px' : '14px 14px 14px' }}>
 
           {/* Top row */}
           <div className="flex items-start justify-between" style={{ marginBottom: '6px' }}>
@@ -76,7 +76,7 @@ export default function PlaceCard({ place, isPicked = false, onClose, onViewDeta
                 </p>
               )}
               <h2 className="font-display font-medium"
-                style={{ fontSize: '1.35rem', color: 'var(--cream)', lineHeight: 1.15, fontStyle: 'italic' }}>
+                style={{ fontSize: '1.15rem', color: 'var(--cream)', lineHeight: 1.15, fontStyle: 'italic' }}>
                 {place.name}
               </h2>
               <p className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px', letterSpacing: '0.06em' }}>

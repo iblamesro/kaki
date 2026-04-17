@@ -144,7 +144,7 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
             </motion.div>
           ) : (
             <motion.div
-              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}
             >
               {filtered.map((place, i) => {
                 const sc = STATUS_CFG[place.status]
@@ -157,9 +157,9 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
                     whileTap={{ scale: 0.97 } as never}
                   >
                     {/* Card */}
-                    <div style={{ borderRadius: '14px', overflow: 'hidden', position: 'relative',
-                      aspectRatio: '3/4', background: CAT_BG[place.category] ?? '#141414',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}>
+                    <div style={{ borderRadius: '12px', overflow: 'hidden', position: 'relative',
+                      aspectRatio: '1/1', background: CAT_BG[place.category] ?? '#141414',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
 
                       {/* Photo */}
                       {place.coverPhoto && (
@@ -200,16 +200,16 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
                       )}
 
                       {/* Bottom info */}
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 10px 12px' }}>
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 8px 9px' }}>
                         <p className="font-display font-medium"
-                          style={{ fontSize: '0.92rem', color: '#fff', fontStyle: 'italic', lineHeight: 1.15,
-                            marginBottom: '4px', textShadow: '0 1px 6px rgba(0,0,0,0.6)',
+                          style={{ fontSize: '0.75rem', color: '#fff', fontStyle: 'italic', lineHeight: 1.2,
+                            marginBottom: '2px', textShadow: '0 1px 4px rgba(0,0,0,0.7)',
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {place.name}
                         </p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: sc.bar, flexShrink: 0 }} />
-                          <span className="font-ui" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)', letterSpacing: '0.04em' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: sc.bar, flexShrink: 0 }} />
+                          <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.03em' }}>
                             {sc.label}
                           </span>
                         </div>
