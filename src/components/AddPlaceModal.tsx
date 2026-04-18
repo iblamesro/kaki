@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Place, PlaceCategory, NominatimResult } from '../types'
+import { detectUrlType, parseShareUrl } from '../lib/parseShareUrl'
 
 const CATEGORIES: PlaceCategory[] = ['Restaurant', 'Café', 'Bar', 'Boutique', 'Activité', 'Autre']
 const TAG_SUGGESTIONS = ['romantique', 'date', 'gastronomique', 'naturel', 'terrasse', 'brunch', 'soirée', 'rapide', 'végé', 'incontournable', 'caché', 'festif', 'business', 'familial']
@@ -30,6 +31,7 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
   const [likedAspects,setLikedAspects]= useState(editPlace?.likedAspects ?? '')
   const [orderedItems,setOrderedItems]= useState(editPlace?.orderedItems ?? '')
   const [tags,         setTags]        = useState<string[]>(editPlace?.tags ?? [])
+  const [priceRange,   setPriceRange]  = useState<1|2|3|4|undefined>(editPlace?.priceRange)
   const [coverPhotoError, setCoverPhotoError] = useState(false)
   const [coords, setCoords]           = useState({ lat: editPlace?.lat ?? 48.8566, lng: editPlace?.lng ?? 2.3522 })
   const [suggestions,  setSuggestions]  = useState<NominatimResult[]>([])
@@ -68,13 +70,33 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
   }
 
   const importFromInstagram = useCallback(async (url: string) => {
-    if (!url.includes('instagram.com')) { setIgError('URL Instagram invalide'); return }
     setIgLoading(true); setIgError(''); setIgPreview(null)
+
+    const type = detectUrlType(url)
+
+    // ── Google Maps / Apple Maps ──────────────────────────────────────────────
+    if (type === 'google-maps' || type === 'apple-maps') {
+      try {
+        const parsed = await parseShareUrl(url)
+        if (!parsed) { setIgError('Impossible de lire cette URL.'); setIgLoading(false); return }
+        if (parsed.name && !name) setName(parsed.name)
+        if (parsed.address && !address) { setAddress(parsed.address) }
+        if (parsed.lat && parsed.lng) setCoords({ lat: parsed.lat, lng: parsed.lng })
+        setIgPreview({ thumb: '', caption: `${parsed.name ?? ''}${parsed.address ? ` · ${parsed.address}` : ''}` })
+      } catch {
+        setIgError('Erreur lors de la lecture de l\'URL Maps.')
+      }
+      setIgLoading(false)
+      return
+    }
+
+    // ── Instagram ─────────────────────────────────────────────────────────────
+    if (!url.includes('instagram.com')) { setIgError('URL non reconnue (Instagram, Google Maps, Apple Maps)'); setIgLoading(false); return }
     try {
-      // Fetch Open Graph tags via CORS proxy
-      const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+      const workerUrl = import.meta.env.VITE_PROXY_WORKER_URL ?? 'http://localhost:8787'
+      const proxy = `${workerUrl}?url=${encodeURIComponent(url)}`
       const res = await fetch(proxy)
-      const data = await res.json()
+      const data = await res.json() as { contents?: string }
       const html: string = data.contents ?? ''
 
       const getTag = (prop: string) => {
@@ -83,14 +105,13 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
         return m ? m[1].replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&quot;/g, '"') : ''
       }
 
-      const ogTitle   = getTag('og:title')
-      const ogImage   = getTag('og:image')
-      const ogDesc    = getTag('og:description')
-      const caption   = ogDesc || ogTitle
+      const ogTitle = getTag('og:title')
+      const ogImage = getTag('og:image')
+      const ogDesc  = getTag('og:description')
+      const caption = ogDesc || ogTitle
 
       if (!ogImage && !caption) { setIgError('Impossible de lire ce post (compte privé ?)'); setIgLoading(false); return }
 
-      // Try to extract restaurant name: first line of caption before hashtags/newline
       const firstLine = caption.split(/\n|#/)[0].trim()
       const guessedName = firstLine.length > 2 && firstLine.length < 60 ? firstLine : ''
 
@@ -103,7 +124,7 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
       setIgError('Erreur réseau — réessaie')
       setIgLoading(false)
     }
-  }, [coverPhoto, name, instagram])
+  }, [coverPhoto, name, instagram, address])
 
   // Debounced trigger when igUrl changes
   useEffect(() => {
@@ -128,6 +149,7 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
         likedAspects: likedAspects.trim() || undefined,
         orderedItems: orderedItems.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
+        priceRange,
       })
     } else if (onAdd) {
       onAdd({
@@ -143,6 +165,7 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
         likedAspects: likedAspects.trim() || undefined,
         orderedItems: orderedItems.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
+        priceRange,
       })
     }
     onClose()
@@ -226,13 +249,13 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
             {/* ── Instagram import ── */}
             <div style={{ background: 'var(--surface-3)', borderRadius: '12px', padding: '12px 14px', border: '1px solid var(--border-2)' }}>
               <label style={{ ...lbl, marginBottom: '8px' }}>
-                <span style={{ marginRight: '6px' }}>📎</span> Importer depuis Instagram
+                <span style={{ marginRight: '6px' }}>📎</span> Importer un lien
               </label>
               <div style={{ position: 'relative' }}>
                 <input
                   value={igUrl}
                   onChange={e => { setIgUrl(e.target.value); setIgError('') }}
-                  placeholder="Colle un lien Instagram…"
+                  placeholder="Instagram, Google Maps, Apple Maps…"
                   style={{ ...inp, background: 'var(--surface-2)', paddingRight: igLoading ? '36px' : '14px' }}
                 />
                 {igLoading && (
@@ -270,6 +293,23 @@ export default function AddPlaceModal({ onAdd, onUpdate, onClose, editPlace }: P
                   <button key={cat} type="button" onClick={() => setCategory(cat)} className="font-ui font-medium transition-all"
                     style={{ padding: '7px 14px', borderRadius: '99px', fontSize: '12px', background: category === cat ? 'var(--cream)' : 'var(--surface-3)', color: category === cat ? 'var(--bg)' : 'var(--cream-dim)', border: category === cat ? 'none' : '1px solid var(--border-2)', cursor: 'pointer' }}>
                     {CAT_EMOJI[cat]} {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price range */}
+            <div>
+              <label style={lbl}>Fourchette de prix</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {([1, 2, 3, 4] as const).map(n => (
+                  <button key={n} type="button" onClick={() => setPriceRange(priceRange === n ? undefined : n)}
+                    className="font-ui font-medium"
+                    style={{ flex: 1, padding: '8px 4px', borderRadius: '10px', fontSize: '12px', cursor: 'pointer',
+                      background: priceRange === n ? 'var(--cream)' : 'var(--surface-3)',
+                      color: priceRange === n ? 'var(--bg)' : 'var(--muted)',
+                      border: priceRange === n ? 'none' : '1px solid var(--border-2)' }}>
+                    {'€'.repeat(n)}
                   </button>
                 ))}
               </div>

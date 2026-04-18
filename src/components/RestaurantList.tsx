@@ -202,16 +202,23 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
                       {/* Bottom info */}
                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 8px 9px' }}>
                         <p className="font-display font-medium"
-                          style={{ fontSize: '0.75rem', color: '#fff', fontStyle: 'italic', lineHeight: 1.2,
-                            marginBottom: '2px', textShadow: '0 1px 4px rgba(0,0,0,0.7)',
+                          style={{ fontSize: '0.88rem', color: '#fff', fontStyle: 'italic', lineHeight: 1.2,
+                            marginBottom: '3px', textShadow: '0 1px 4px rgba(0,0,0,0.7)',
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {place.name}
                         </p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: sc.bar, flexShrink: 0 }} />
-                          <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.03em' }}>
-                            {sc.label}
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: sc.bar, flexShrink: 0 }} />
+                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.03em' }}>
+                              {sc.label}
+                            </span>
+                          </div>
+                          {place.priceRange && (
+                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em' }}>
+                              {'€'.repeat(place.priceRange)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

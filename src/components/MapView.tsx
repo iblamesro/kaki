@@ -6,7 +6,6 @@ import { Place } from '../types'
 export interface MapViewProps {
   places: Place[]
   onPlaceClick: (place: Place) => void
-  onOpenFriends: () => void
 }
 
 const STATUS_COLORS = {
@@ -100,7 +99,7 @@ function LocationButton() {
   )
 }
 
-export default function MapView({ places, onPlaceClick, onOpenFriends }: MapViewProps) {
+export default function MapView({ places, onPlaceClick }: MapViewProps) {
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <MapContainer
@@ -117,18 +116,6 @@ export default function MapView({ places, onPlaceClick, onOpenFriends }: MapView
         <Markers places={places} onPlaceClick={onPlaceClick} />
         <LocationButton />
       </MapContainer>
-
-      {/* Friend search button */}
-      <button onClick={onOpenFriends}
-        style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 500,
-          width: '40px', height: '40px', borderRadius: '12px',
-          background: 'var(--surface)', border: '1px solid var(--border-2)',
-          color: 'var(--cream-dim)', fontSize: '16px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
-        title="Chercher un ami">
-        👤
-      </button>
     </div>
   )
 }

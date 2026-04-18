@@ -1,0 +1,7 @@
+name = "kaki-proxy"
+main = "index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Déploiement : wrangler deploy
+# Dev local   : wrangler dev  (tourne sur http://localhost:8787)

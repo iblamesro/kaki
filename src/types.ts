@@ -25,8 +25,9 @@ export interface Place {
   likedAspects?: string
   orderedItems?: string
   tags?: string[]
-  rating?: number   // 1–5
-  hearted?: boolean // Eden a mis un ♡
+  rating?: number      // 1–5
+  priceRange?: 1 | 2 | 3 | 4  // € €€ €€€ €€€€
+  hearted?: boolean  // Eden a mis un ♡
 }
 
 export interface NominatimResult {

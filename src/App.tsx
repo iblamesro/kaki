@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePlaces } from './store'
+import { useAuth } from './lib/auth'
 import { Place } from './types'
 import Header from './components/Header'
+import AuthModal from './components/AuthModal'
 import MapView from './components/MapView'
 import PlaceCard from './components/PlaceCard'
 import AddPlaceModal from './components/AddPlaceModal'
@@ -13,6 +15,9 @@ import RestaurantDetail from './components/RestaurantDetail'
 import StatsView from './components/StatsView'
 import CeSoirModal from './components/CeSoirModal'
 import FriendMapView from './components/FriendMapView'
+import GroupView from './components/GroupView'
+import ProfileView from './components/ProfileView'
+import FeedView from './components/FeedView'
 
 type Screen =
   | { name: 'landing' }
@@ -21,26 +26,50 @@ type Screen =
   | { name: 'list' }
   | { name: 'detail'; placeId: string }
   | { name: 'stats' }
-  | { name: 'friends' }
+  | { name: 'friends'; userId?: string }
+  | { name: 'groups' }
+  | { name: 'profile' }
+  | { name: 'feed' }
 
 type NewPlace = Omit<Place, 'id' | 'status' | 'dateAdded' | 'dateVisited'>
 
+// ── App shell : gère uniquement l'auth gate ───────────────────────────────────
 export default function App() {
+  const { user, loading: authLoading } = useAuth()
+
+  if (authLoading) {
+    return (
+      <div style={{ height: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="font-display font-medium"
+          style={{ fontSize: '2rem', letterSpacing: '0.16em', color: 'var(--cream)', fontStyle: 'italic', opacity: 0.4 }}>
+          kaki
+        </span>
+      </div>
+    )
+  }
+
+  if (!user) return <AuthModal />
+
+  return <AppInner userId={user.id} />
+}
+
+// ── AppInner : tous les hooks ici, jamais après un return conditionnel ─────────
+function AppInner({ userId }: { userId: string }) {
   const { places, addPlace, updatePlace, updateStatus, removePlace } = usePlaces()
 
-  const [stack, setStack]           = useState<Screen[]>([{ name: 'landing' }])
-  const [showAdd,    setShowAdd]    = useState(false)
-  const [editPlace,  setEditPlace]  = useState<Place | undefined>(undefined)
-  const [pickedId,   setPickedId]   = useState<string | null>(null)
+  const [stack, setStack] = useState<Screen[]>([{ name: 'landing' }])
+  const [showAdd,     setShowAdd]     = useState(false)
+  const [editPlace,   setEditPlace]   = useState<Place | undefined>(undefined)
+  const [pickedId,    setPickedId]    = useState<string | null>(null)
   const [mapSelected, setMapSelected] = useState<Place | null>(null)
   const [showCeSoir,  setShowCeSoir]  = useState(false)
 
   const current = stack[stack.length - 1]
 
-  const push     = useCallback((screen: Screen) => setStack(prev => [...prev, screen]), [])
-  const pop      = useCallback(() => setStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev), [])
-  const goHome   = useCallback(() => setStack([{ name: 'landing' }]), [])
-  const goMap    = useCallback(() => setStack([{ name: 'map' }]), [])
+  const push   = useCallback((screen: Screen) => setStack(prev => [...prev, screen]), [])
+  const pop    = useCallback(() => setStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev), [])
+  const goHome = useCallback(() => setStack([{ name: 'landing' }]), [])
+  const goMap  = useCallback(() => setStack([{ name: 'map' }]), [])
 
   const wishlist = places.filter(p => p.status === 'wishlist')
 
@@ -51,9 +80,7 @@ export default function App() {
     setShowAdd(false)
   }
 
-  const handleKakiChoose = useCallback(() => {
-    setShowCeSoir(true)
-  }, [])
+  const handleKakiChoose = useCallback(() => setShowCeSoir(true), [])
 
   const handleToggleHeart = useCallback((id: string) => {
     updatePlace(id, { hearted: !places.find(p => p.id === id)?.hearted })
@@ -68,38 +95,52 @@ export default function App() {
     setPickedId(null)
   }
 
-  // ── Landing ───────────────────────────────────────────────────────────────────
+  // ── Profile ───────────────────────────────────────────────────────────────────
+  if (current.name === 'profile') {
+    return <ProfileView onBack={pop} />
+  }
+
+  // ── Feed ──────────────────────────────────────────────────────────────────────
+  if (current.name === 'feed') {
+    return <FeedView onBack={pop} />
+  }
+
+  // ── Landing ──────────────────────────────────────────────────────────────────
   if (current.name === 'landing') {
     return <LandingPage onEnter={() => push({ name: 'map' })} onOpenList={() => { push({ name: 'map' }); setTimeout(() => push({ name: 'list' }), 50) }} />
   }
 
-  // ── Swipe ─────────────────────────────────────────────────────────────────────
+  // ── Swipe ────────────────────────────────────────────────────────────────────
   if (current.name === 'swipe') {
-    return (
-      <SwipeView
-        places={wishlist}
-        onSwipe={(id, dir) => updateStatus(id, dir)}
-        onClose={pop}
-      />
-    )
+    return <SwipeView places={wishlist} onSwipe={(id, dir) => updateStatus(id, dir)} onClose={pop} />
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────────
+  // ── Stats ────────────────────────────────────────────────────────────────────
   if (current.name === 'stats') {
     return <StatsView places={places} onBack={pop} onGoHome={goHome} />
   }
 
-  // ── Friends ───────────────────────────────────────────────────────────────────
+  // ── Friends ──────────────────────────────────────────────────────────────────
   if (current.name === 'friends') {
     return (
       <FriendMapView
+        initialUserId={current.userId}
         onBack={pop}
-        onAddToMyList={p => addPlace({ name: p.name, address: p.address, category: p.category, lat: p.lat, lng: p.lng, notes: p.notes, coverPhoto: p.coverPhoto, tags: p.tags, description: p.description })}
+        onAddToMyList={p => addPlace({
+          name: p.name, address: p.address, category: p.category, lat: p.lat, lng: p.lng,
+          notes: p.notes, coverPhoto: p.coverPhoto, tags: p.tags, description: p.description,
+          rating: p.rating, priceRange: p.priceRange, instagram: p.instagram,
+        })}
       />
     )
   }
 
-  // ── List ──────────────────────────────────────────────────────────────────────
+  // ── Groups ───────────────────────────────────────────────────────────────────
+  if (current.name === 'groups') {
+    return <GroupView onBack={pop} myPlaces={places} />
+  }
+
+  // ── List ─────────────────────────────────────────────────────────────────────
   if (current.name === 'list') {
     return (
       <>
@@ -126,7 +167,7 @@ export default function App() {
     )
   }
 
-  // ── Detail ────────────────────────────────────────────────────────────────────
+  // ── Detail ───────────────────────────────────────────────────────────────────
   if (current.name === 'detail') {
     const place = places.find(p => p.id === current.placeId)
     if (!place) { pop(); return null }
@@ -158,26 +199,25 @@ export default function App() {
     )
   }
 
-  // ── Map view ─────────────────────────────────────────────────────────────────
+  // ── Map ──────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col" style={{ height: '100dvh', background: 'var(--bg)' }}>
       <Header
-        placesCount={places.length}
-        wishlistCount={wishlist.length}
+        currentUserId={userId}
         onLogoClick={goHome}
-        onOpenList={() => push({ name: 'list' })}
+        onOpenFriend={friendId => push({ name: 'friends', userId: friendId })}
+        onOpenGroups={() => push({ name: 'groups' })}
+        onOpenProfile={() => push({ name: 'profile' })}
       />
 
       <div className="flex-1 relative overflow-hidden">
         <MapView
           places={places}
           onPlaceClick={p => { setPickedId(null); setMapSelected(p) }}
-          onOpenFriends={() => push({ name: 'friends' })}
         />
 
-        {/* Kaki choisit */}
         <AnimatePresence>
-          {wishlist.length >= 2 && !mapSelected && (
+          {wishlist.length >= 1 && !mapSelected && (
             <motion.button
               key="kaki-choose"
               initial={{ opacity: 0, y: 10, scale: 0.92 }}
@@ -200,7 +240,6 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Place card */}
         <AnimatePresence>
           {mapSelected && (
             <PlaceCard
@@ -222,7 +261,6 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Ce soir modal */}
         <AnimatePresence>
           {showCeSoir && (
             <CeSoirModal
@@ -234,12 +272,10 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* Bottom bar */}
       <div
         className="flex items-center justify-between px-5 flex-shrink-0"
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', minHeight: '72px', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        {/* Évaluer */}
         <button
           onClick={() => push({ name: 'swipe' })}
           disabled={wishlist.length === 0}
@@ -254,7 +290,6 @@ export default function App() {
           )}
         </button>
 
-        {/* + Add */}
         <button
           onClick={() => { setEditPlace(undefined); setShowAdd(true) }}
           className="flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
@@ -263,17 +298,15 @@ export default function App() {
           +
         </button>
 
-        {/* Nos adresses */}
         <button
-          onClick={() => push({ name: 'list' })}
+          onClick={() => push({ name: 'feed' })}
           className="font-ui font-medium"
           style={{ color: 'var(--cream-dim)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.06em', fontSize: '13px' }}
         >
-          Adresses
+          Activité
         </button>
       </div>
 
-      {/* Add / Edit modal */}
       <AnimatePresence>
         {showAdd && (
           <AddPlaceModal
