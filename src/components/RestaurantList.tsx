@@ -2,20 +2,19 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Place, PlaceStatus } from '../types'
 
-const CAT_EMOJI: Record<string, string> = {
-  Restaurant: '🍽', Café: '☕', Bar: '🍷', Boutique: '🛍', Activité: '✦', Autre: '◎',
-}
-
 const STATUS_CFG = {
-  wishlist: { label: 'À tester', color: 'var(--accent)',   bar: '#C47C10' },
-  liked:    { label: 'Aimé',     color: 'var(--liked)',    bar: '#268042' },
-  disliked: { label: 'Bof',      color: 'var(--disliked)', bar: '#9C3030' },
+  wishlist: { label: 'À tester', dot: '#C47C10', bar: '#C47C10' },
+  liked:    { label: 'Aimé',     dot: '#268042', bar: '#268042' },
+  disliked: { label: 'Bof',      dot: '#9C3030', bar: '#9C3030' },
 }
 
-// Warm placeholder colors by category
 const CAT_BG: Record<string, string> = {
   Restaurant: '#1C1A12', Café: '#1A150E', Bar: '#180E14',
   Boutique: '#0E1318', Activité: '#121818', Autre: '#141414',
+}
+
+const CAT_EMOJI: Record<string, string> = {
+  Restaurant: '🍽', Café: '☕', Bar: '🍷', Boutique: '🛍', Activité: '✦', Autre: '◎',
 }
 
 type StatusFilter = 'all' | PlaceStatus
@@ -42,77 +41,97 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
 
-  const handleShare = () => {
-    const text = `Ma carte kaki 🍽\n\n${places.map(p => `• ${p.name} — ${p.status === 'liked' ? 'Aimé ✓' : 'À tester'}`).join('\n')}`
-    if (navigator.share) {
-      navigator.share({ title: 'Ma carte kaki', text })
-    } else {
-      navigator.clipboard.writeText(text)
-      alert('Liste copiée dans le presse-papiers !')
-    }
+  const counts = {
+    all:      places.length,
+    wishlist: places.filter(p => p.status === 'wishlist').length,
+    liked:    places.filter(p => p.status === 'liked').length,
+    disliked: places.filter(p => p.status === 'disliked').length,
   }
 
   return (
     <div style={{ height: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Header ── */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '14px 20px 0', flexShrink: 0 }}>
-        <div className="flex items-center justify-between" style={{ marginBottom: '18px' }}>
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+
+        {/* Top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0' }}>
           <button onClick={onGoHome} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <span className="font-display font-medium" style={{ fontSize: '1.3rem', color: 'var(--cream)', fontStyle: 'italic', letterSpacing: '0.14em' }}>kaki</span>
+            <span className="font-display font-medium"
+              style={{ fontSize: '1.3rem', color: 'var(--cream)', fontStyle: 'italic', letterSpacing: '0.14em' }}>
+              kaki
+            </span>
           </button>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button onClick={onBack} className="font-ui"
-              style={{ fontSize: '11px', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.06em' }}>
+              style={{ padding: '7px 10px', fontSize: '11px', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
               ← carte
             </button>
-            <button onClick={handleShare} title="Partager"
-              style={{ fontSize: '15px', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>
-              ↑
-            </button>
-            <button onClick={onOpenStats} title="Stats"
-              style={{ fontSize: '16px', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>
+            <button onClick={onOpenStats}
+              style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'transparent',
+                border: '1px solid var(--border-2)', color: 'var(--muted)', fontSize: '13px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               ◎
             </button>
             <button onClick={onAdd}
-              style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--cream)', color: 'var(--bg)', fontSize: '18px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+              style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--cream)',
+                color: 'var(--bg)', fontSize: '20px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
               +
             </button>
           </div>
         </div>
 
         {/* Title */}
-        <div style={{ marginBottom: '16px' }}>
-          <h1 className="font-display font-medium" style={{ fontSize: '1.6rem', color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1 }}>
-            Nos adresses
-          </h1>
-          <p className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
-            {filtered.length} adresse{filtered.length !== 1 ? 's' : ''}
-          </p>
+        <div style={{ padding: '12px 20px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '14px' }}>
+            <h1 className="font-display font-medium"
+              style={{ fontSize: '1.75rem', color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1 }}>
+              Nos adresses
+            </h1>
+            <span className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)' }}>
+              {filtered.length}/{counts.all}
+            </span>
+          </div>
         </div>
 
         {/* Search */}
-        <div style={{ position: 'relative', marginBottom: '12px' }}>
+        <div style={{ position: 'relative', margin: '0 20px 12px' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+            color: 'var(--muted)', fontSize: '13px', pointerEvents: 'none' }}>⌕</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
-            style={{ width: '100%', background: 'var(--surface-3)', border: 'none', borderRadius: '10px',
-              color: 'var(--cream)', padding: '9px 36px 9px 32px',
-              fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: '14px', outline: 'none' }} />
-          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '14px', pointerEvents: 'none' }}>⌕</span>
-          {search && <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '15px' }}>×</button>}
+            style={{ width: '100%', background: 'var(--surface-3)', border: '1px solid var(--border-2)',
+              borderRadius: '10px', color: 'var(--cream)', padding: '9px 32px 9px 32px',
+              fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: '13px',
+              outline: 'none', boxSizing: 'border-box' }} />
+          {search && (
+            <button onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '15px' }}>
+              ×
+            </button>
+          )}
         </div>
 
-        {/* Status chips */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: allTags.length > 0 ? '8px' : '14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {/* Status filters */}
+        <div style={{ display: 'flex', gap: '6px', padding: '0 20px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
           {(['all', 'liked', 'wishlist', 'disliked'] as StatusFilter[]).map(f => {
-            const count = f === 'all' ? places.length : places.filter(p => p.status === f).length
-            const label = f === 'all' ? 'Tous' : STATUS_CFG[f].label
             const active = statusFilter === f
+            const label = f === 'all' ? 'Tous' : STATUS_CFG[f].label
             return (
               <button key={f} onClick={() => setStatusFilter(f)} className="font-ui font-medium flex-shrink-0"
-                style={{ padding: '5px 13px', borderRadius: '99px', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap',
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 13px',
+                  borderRadius: '99px', fontSize: '12px', cursor: 'pointer',
                   background: active ? 'var(--cream)' : 'var(--surface-3)',
-                  color: active ? 'var(--bg)' : 'var(--cream-dim)', border: 'none' }}>
-                {label} <span style={{ opacity: 0.45, fontSize: '10px' }}>{count}</span>
+                  color: active ? 'var(--bg)' : 'var(--cream-dim)',
+                  border: active ? 'none' : '1px solid var(--border-2)', transition: 'all 0.15s' }}>
+                {f !== 'all' && (
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%',
+                    background: active ? 'var(--bg)' : STATUS_CFG[f].dot, opacity: active ? 0.4 : 1, flexShrink: 0 }} />
+                )}
+                {label}
+                <span style={{ opacity: 0.4, fontSize: '10px' }}>{counts[f]}</span>
               </button>
             )
           })}
@@ -120,13 +139,15 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
 
         {/* Tag chips */}
         {allTags.length > 0 && (
-          <div style={{ display: 'flex', gap: '6px', paddingBottom: '14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          <div style={{ display: 'flex', gap: '6px', padding: '0 20px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {allTags.map(tag => (
-              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} className="font-ui font-medium flex-shrink-0"
-                style={{ padding: '4px 10px', borderRadius: '99px', fontSize: '11px', cursor: 'pointer',
-                  background: activeTag === tag ? 'rgba(138,156,30,0.2)' : 'transparent',
+              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                className="font-ui flex-shrink-0"
+                style={{ padding: '3px 10px', borderRadius: '99px', fontSize: '11px', cursor: 'pointer',
+                  background: activeTag === tag ? 'rgba(138,156,30,0.15)' : 'transparent',
                   color: activeTag === tag ? 'var(--kaki-light)' : 'var(--muted)',
-                  border: `1px solid ${activeTag === tag ? 'rgba(138,156,30,0.45)' : 'var(--border-2)'}` }}>
+                  border: `1px solid ${activeTag === tag ? 'rgba(138,156,30,0.4)' : 'var(--border-2)'}`,
+                  transition: 'all 0.15s' }}>
                 #{tag}
               </button>
             ))}
@@ -134,101 +155,131 @@ export default function RestaurantList({ places, onBack, onGoHome, onSelectPlace
         )}
       </div>
 
-      {/* ── Card grid ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
+      {/* ── Grid ─────────────────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 0' }}>
         <AnimatePresence mode="popLayout">
           {filtered.length === 0 ? (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p className="font-ui" style={{ fontSize: '13px', color: 'var(--muted)' }}>Aucune adresse</p>
+              style={{ paddingTop: '64px', textAlign: 'center' }}>
+              <p className="font-display font-medium"
+                style={{ fontSize: '1.3rem', color: 'var(--cream)', fontStyle: 'italic', opacity: 0.25, marginBottom: '14px' }}>
+                {search ? `"${search}"` : 'Aucune adresse'}
+              </p>
+              {!search && (
+                <button onClick={onAdd} className="font-ui font-medium"
+                  style={{ padding: '10px 22px', borderRadius: '99px', background: 'var(--surface-3)',
+                    border: '1px solid var(--border-2)', color: 'var(--cream-dim)', fontSize: '12px', cursor: 'pointer' }}>
+                  + Ajouter un lieu
+                </button>
+              )}
             </motion.div>
           ) : (
-            <motion.div
-              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 10px' }}>
               {filtered.map((place, i) => {
                 const sc = STATUS_CFG[place.status]
+                const shortAddr = (() => {
+                  const parts = place.address.split(',')
+                  // "134 Bd Haussmann, 75008 Paris" → "75008 Paris"
+                  const arrond = parts.find(p => /7[5-9]\d{3}/.test(p.trim()))
+                  return arrond?.trim() ?? parts.slice(0, 2).join(',').trim()
+                })()
+
                 return (
-                  <motion.button key={place.id}
-                    initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.25, delay: i * 0.04 }}
-                    onClick={() => onSelectPlace(place)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', display: 'block' }}
-                    whileTap={{ scale: 0.97 } as never}
+                  <motion.div key={place.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.25) }}
                   >
-                    {/* Card */}
-                    <div style={{ borderRadius: '12px', overflow: 'hidden', position: 'relative',
-                      aspectRatio: '1/1', background: CAT_BG[place.category] ?? '#141414',
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
+                    <button
+                      onClick={() => onSelectPlace(place)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                        textAlign: 'left', display: 'block', width: '100%' }}
+                    >
+                      {/* Square photo card */}
+                      <div style={{ borderRadius: '14px', overflow: 'hidden', position: 'relative',
+                        aspectRatio: '1 / 1', background: CAT_BG[place.category] ?? '#141414',
+                        boxShadow: '0 2px 14px rgba(0,0,0,0.45)', marginBottom: '9px' }}>
 
-                      {/* Photo */}
-                      {place.coverPhoto && (
-                        <img src={place.coverPhoto} alt={place.name}
-                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      )}
+                        {place.coverPhoto && (
+                          <img src={place.coverPhoto} alt={place.name}
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                        )}
 
-                      {/* No photo — category emoji centered */}
-                      {!place.coverPhoto && (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '32px', opacity: 0.18 }}>{CAT_EMOJI[place.category]}</span>
-                        </div>
-                      )}
-
-                      {/* Gradient overlay */}
-                      <div style={{ position: 'absolute', inset: 0,
-                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.78) 100%)' }} />
-
-                      {/* Status bar top */}
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: sc.bar, opacity: 0.8 }} />
-
-                      {/* Heart badge */}
-                      {place.hearted && (
-                        <div style={{ position: 'absolute', top: '10px', right: '10px',
-                          fontSize: '13px', color: '#e05c6a', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>
-                          ♥
-                        </div>
-                      )}
-
-                      {/* Rating */}
-                      {place.rating && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px' }}>
-                          <span style={{ fontSize: '9px', color: 'rgba(244,220,120,0.9)', letterSpacing: '1px', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>
-                            {'★'.repeat(place.rating)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Bottom info */}
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 8px 9px' }}>
-                        <p className="font-display font-medium"
-                          style={{ fontSize: '0.88rem', color: '#fff', fontStyle: 'italic', lineHeight: 1.2,
-                            marginBottom: '3px', textShadow: '0 1px 4px rgba(0,0,0,0.7)',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {place.name}
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: sc.bar, flexShrink: 0 }} />
-                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.03em' }}>
-                              {sc.label}
-                            </span>
+                        {/* No photo: emoji */}
+                        {!place.coverPhoto && (
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '28px', opacity: 0.15 }}>{CAT_EMOJI[place.category] ?? '◎'}</span>
                           </div>
+                        )}
+
+                        {/* Gradient */}
+                        <div style={{ position: 'absolute', inset: 0,
+                          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.55) 100%)' }} />
+
+                        {/* Status stripe */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
+                          background: sc.bar, opacity: 0.85 }} />
+
+                        {/* Heart + price — top right */}
+                        <div style={{ position: 'absolute', top: '9px', right: '9px',
+                          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          {place.hearted && (
+                            <span style={{ fontSize: '12px', color: '#e05c6a',
+                              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}>♥</span>
+                          )}
                           {place.priceRange && (
-                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em' }}>
+                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.75)',
+                              letterSpacing: '0.04em', textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>
                               {'€'.repeat(place.priceRange)}
                             </span>
                           )}
                         </div>
+
+                        {/* Rating — bottom left */}
+                        {place.rating && (
+                          <span style={{ position: 'absolute', bottom: '8px', left: '9px', fontSize: '9px',
+                            color: 'rgba(244,220,120,0.9)', letterSpacing: '1.5px',
+                            filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))' }}>
+                            {'★'.repeat(place.rating)}
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  </motion.button>
+
+                      {/* Name + info BELOW the card */}
+                      <div style={{ paddingLeft: '2px', paddingBottom: '4px' }}>
+                        <p className="font-display font-medium"
+                          style={{ fontSize: '1rem', color: 'var(--cream)', fontStyle: 'italic',
+                            lineHeight: 1.2, marginBottom: '4px',
+                            display: '-webkit-box', WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
+                          {place.name}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%',
+                            background: sc.bar, flexShrink: 0 }} />
+                          <span className="font-ui" style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                            {sc.label}
+                          </span>
+                          {shortAddr && (
+                            <>
+                              <span style={{ color: 'var(--border-2)', fontSize: '10px' }}>·</span>
+                              <span className="font-ui" style={{ fontSize: '10px', color: 'var(--muted)', opacity: 0.7,
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px' }}>
+                                {shortAddr}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </motion.div>
                 )
               })}
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
-        <div style={{ height: '32px' }} />
+        <div style={{ height: '40px' }} />
       </div>
     </div>
   )

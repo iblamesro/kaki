@@ -169,12 +169,6 @@ export default function RestaurantDetail({ place, onBack, onGoHome, onEdit, onUp
         {/* Divider */}
         <div style={{ height: '1px', background: 'var(--border)', marginBottom: '20px' }} />
 
-        {/* Rating */}
-        <div style={{ marginBottom: '20px' }}>
-          <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Notre note</p>
-          <RatingStars rating={place.rating} onChange={r => onUpdateField(place.id, { rating: r || undefined })} />
-        </div>
-
         {/* Tags */}
         {place.tags && place.tags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
@@ -183,7 +177,7 @@ export default function RestaurantDetail({ place, onBack, onGoHome, onEdit, onUp
                 style={{ fontSize: '10px', color: 'var(--kaki-light)',
                   background: 'rgba(138,156,30,0.12)', border: '1px solid rgba(138,156,30,0.28)',
                   borderRadius: '99px', padding: '3px 10px' }}>
-                # {tag}
+                #{tag}
               </span>
             ))}
           </div>
@@ -196,20 +190,91 @@ export default function RestaurantDetail({ place, onBack, onGoHome, onEdit, onUp
           <p className="font-ui" style={{ fontSize: '13px', color: 'var(--cream-dim)', lineHeight: 1.5 }}>{place.address}</p>
         </div>
 
-        {/* Notes */}
-        {place.notes && (
-          <div style={{ marginBottom: '4px', paddingLeft: '12px', borderLeft: '2px solid var(--kaki)' }}>
-            <p className="font-display italic"
-              style={{ fontSize: '14px', color: 'var(--cream-dim)', lineHeight: 1.7, opacity: 0.85 }}>
-              "{place.notes}"
+        {/* Description */}
+        <EditableSection
+          label="Description"
+          value={place.description}
+          placeholder="Ambiance, style culinaire, concept…"
+          onSave={v => onUpdateField(place.id, { description: v || undefined })}
+        />
+
+        {/* ── Après la visite ── */}
+        {place.status !== 'wishlist' ? (
+          <div style={{ marginTop: '28px', borderRadius: '18px', border: '1px solid rgba(138,156,30,0.22)',
+            background: 'rgba(138,156,30,0.04)', padding: '18px 16px 6px' }}>
+            <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--accent)',
+              textTransform: 'uppercase', marginBottom: '18px' }}>
+              ✦ Après la visite
             </p>
+
+            {/* Note */}
+            <div style={{ marginBottom: '18px' }}>
+              <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--muted)',
+                textTransform: 'uppercase', marginBottom: '10px' }}>Ma note</p>
+              <RatingStars rating={place.rating} onChange={r => onUpdateField(place.id, { rating: r || undefined })} />
+            </div>
+
+            {/* Budget */}
+            <div style={{ marginBottom: '18px' }}>
+              <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--muted)',
+                textTransform: 'uppercase', marginBottom: '10px' }}>Budget</p>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {([1, 2, 3, 4] as const).map(n => (
+                  <button key={n} type="button"
+                    onClick={() => onUpdateField(place.id, { priceRange: place.priceRange === n ? undefined : n })}
+                    className="font-ui font-medium"
+                    style={{ padding: '5px 12px', borderRadius: '99px', fontSize: '12px', cursor: 'pointer',
+                      border: `1px solid ${place.priceRange === n ? 'rgba(138,156,30,0.5)' : 'var(--border-2)'}`,
+                      background: place.priceRange === n ? 'rgba(138,156,30,0.15)' : 'var(--surface-3)',
+                      color: place.priceRange === n ? 'var(--kaki-light)' : 'var(--muted)',
+                      transition: 'all 0.15s' }}>
+                    {'€'.repeat(n)}
+                  </button>
+                ))}
+                {place.priceRange && (
+                  <span className="font-ui" style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '4px' }}>
+                    {place.priceRange === 1 ? '< 20€ / pers.' : place.priceRange === 2 ? '20–40€ / pers.' : place.priceRange === 3 ? '40–80€ / pers.' : '80€+ / pers.'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <EditableSection
+              label="Ce qu'on a commandé"
+              value={place.orderedItems}
+              placeholder="Plats, vins, desserts…"
+              onSave={v => onUpdateField(place.id, { orderedItems: v || undefined })}
+            />
+            <EditableSection
+              label="Ce qu'on a aimé"
+              value={place.likedAspects}
+              placeholder="Plats signature, service, ambiance…"
+              onSave={v => onUpdateField(place.id, { likedAspects: v || undefined })}
+            />
+            <EditableSection
+              label="Remarques"
+              value={place.notes}
+              placeholder="Notes libres, anecdotes, à retenir…"
+              onSave={v => onUpdateField(place.id, { notes: v || undefined })}
+            />
+          </div>
+        ) : (
+          <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--muted)',
+                textTransform: 'uppercase', marginBottom: '10px' }}>Ma note</p>
+              <RatingStars rating={place.rating} onChange={r => onUpdateField(place.id, { rating: r || undefined })} />
+            </div>
+            {place.notes && (
+              <div style={{ paddingLeft: '12px', borderLeft: '2px solid var(--kaki)', marginBottom: '4px' }}>
+                <p className="font-display italic"
+                  style={{ fontSize: '14px', color: 'var(--cream-dim)', lineHeight: 1.7, opacity: 0.85 }}>
+                  "{place.notes}"
+                </p>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Editable sections */}
-        <EditableSection label="Description" value={place.description} placeholder="Ambiance, style culinaire, concept…" onSave={v => onUpdateField(place.id, { description: v || undefined })} />
-        <EditableSection label="Ce qu'on a aimé" value={place.likedAspects} placeholder="Plats signature, service, ambiance…" onSave={v => onUpdateField(place.id, { likedAspects: v || undefined })} />
-        <EditableSection label="Ce qu'on a commandé" value={place.orderedItems} placeholder="Les plats, vins, desserts…" onSave={v => onUpdateField(place.id, { orderedItems: v || undefined })} />
 
         {/* ── Status change ── */}
         <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>

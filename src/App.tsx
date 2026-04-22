@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePlaces } from './store'
 import { useAuth } from './lib/auth'
+import { supabase } from './lib/supabase'
 import { Place } from './types'
 import Header from './components/Header'
 import AuthModal from './components/AuthModal'
@@ -18,6 +19,11 @@ import FriendMapView from './components/FriendMapView'
 import GroupView from './components/GroupView'
 import ProfileView from './components/ProfileView'
 import FeedView from './components/FeedView'
+import KakiAIModal from './components/KakiAIModal'
+import OnboardingFlow from './components/OnboardingFlow'
+import ConfirmReservation from './components/ConfirmReservation'
+import InvitePage from './components/InvitePage'
+import AdminPlaceManager from './components/AdminPlaceManager'
 
 type Screen =
   | { name: 'landing' }
@@ -33,9 +39,18 @@ type Screen =
 
 type NewPlace = Omit<Place, 'id' | 'status' | 'dateAdded' | 'dateVisited'>
 
-// ── App shell : gère uniquement l'auth gate ───────────────────────────────────
+// ── App shell : gère l'auth gate + deep links ─────────────────────────────────
 export default function App() {
   const { user, loading: authLoading } = useAuth()
+
+  // Deep links — work before auth check
+  const confirmMatch = window.location.pathname.match(/^\/confirm\/([a-zA-Z0-9]+)$/)
+  if (confirmMatch) return <ConfirmReservation trackingCode={confirmMatch[1]} />
+
+  const inviteMatch = window.location.pathname.match(/^\/invite\/([a-zA-Z0-9]+)$/)
+  if (inviteMatch) return <InvitePage inviteCode={inviteMatch[1]} />
+
+  if (window.location.pathname === '/admin') return <AdminPlaceManager />
 
   if (authLoading) {
     return (
@@ -57,12 +72,32 @@ export default function App() {
 function AppInner({ userId }: { userId: string }) {
   const { places, addPlace, updatePlace, updateStatus, removePlace } = usePlaces()
 
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    void supabase
+      .from('users')
+      .select('onboarding_completed')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data }) => setOnboardingDone(data?.onboarding_completed ?? false))
+  }, [userId])
+
+  // Rejoindre un groupe en attente (venant d'un lien /invite/[code] avant auth)
+  useEffect(() => {
+    const pendingCode = sessionStorage.getItem('pending_invite')
+    if (!pendingCode) return
+    sessionStorage.removeItem('pending_invite')
+    void supabase.rpc('join_group_by_invite', { p_code: pendingCode })
+  }, [userId])
+
   const [stack, setStack] = useState<Screen[]>([{ name: 'landing' }])
   const [showAdd,     setShowAdd]     = useState(false)
   const [editPlace,   setEditPlace]   = useState<Place | undefined>(undefined)
   const [pickedId,    setPickedId]    = useState<string | null>(null)
   const [mapSelected, setMapSelected] = useState<Place | null>(null)
   const [showCeSoir,  setShowCeSoir]  = useState(false)
+  const [showAI,      setShowAI]      = useState(false)
 
   const current = stack[stack.length - 1]
 
@@ -93,6 +128,20 @@ function AppInner({ userId }: { userId: string }) {
     if (current.name === 'detail') pop()
     setMapSelected(null)
     setPickedId(null)
+  }
+
+  // ── Onboarding ───────────────────────────────────────────────────────────────
+  if (onboardingDone === null) {
+    return (
+      <div style={{ height: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="font-display font-medium" style={{ fontSize: '2rem', letterSpacing: '0.16em', color: 'var(--cream)', fontStyle: 'italic', opacity: 0.4 }}>
+          kaki
+        </span>
+      </div>
+    )
+  }
+  if (onboardingDone === false) {
+    return <OnboardingFlow userId={userId} onDone={() => setOnboardingDone(true)} />
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────────
@@ -216,8 +265,24 @@ function AppInner({ userId }: { userId: string }) {
           onPlaceClick={p => { setPickedId(null); setMapSelected(p) }}
         />
 
+        {/* ── Bouton IA flottant ── */}
+        <button
+          type="button"
+          onClick={() => setShowAI(true)}
+          className="absolute font-ui font-semibold"
+          style={{
+            top: '14px', right: '14px', zIndex: 500,
+            background: 'var(--surface)', color: 'var(--cream)',
+            border: '1px solid var(--border-2)', borderRadius: '99px',
+            padding: '9px 16px', fontSize: '11px', letterSpacing: '0.06em',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', cursor: 'pointer',
+          }}
+        >
+          ✦ Kaki IA
+        </button>
+
         <AnimatePresence>
-          {wishlist.length >= 1 && !mapSelected && (
+          {wishlist.length >= 1 && (
             <motion.button
               key="kaki-choose"
               initial={{ opacity: 0, y: 10, scale: 0.92 }}
@@ -228,14 +293,14 @@ function AppInner({ userId }: { userId: string }) {
               whileTap={{ scale: 0.94 }}
               className="absolute font-ui font-semibold"
               style={{
-                top: '16px', left: '50%', transform: 'translateX(-50%)',
-                zIndex: 500, background: 'var(--surface)', color: 'var(--cream)',
-                border: '1px solid var(--border-2)', borderRadius: '99px',
-                padding: '10px 20px', fontSize: '12px', letterSpacing: '0.06em',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', cursor: 'pointer',
+                top: '50px', right: '14px',
+                zIndex: 500, background: 'rgba(138,156,30,0.18)', color: 'var(--accent)',
+                border: '1px solid rgba(138,156,30,0.35)', borderRadius: '99px',
+                padding: '9px 16px', fontSize: '11px', letterSpacing: '0.06em',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.3)', whiteSpace: 'nowrap', cursor: 'pointer',
               }}
             >
-              ✦ Kaki choisit pour vous
+              ✦ Kaki choisit
             </motion.button>
           )}
         </AnimatePresence>
@@ -265,8 +330,19 @@ function AppInner({ userId }: { userId: string }) {
           {showCeSoir && (
             <CeSoirModal
               places={places}
+              userId={userId}
               onResult={place => { setPickedId(place.id); setMapSelected(place) }}
               onClose={() => setShowCeSoir(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showAI && (
+            <KakiAIModal
+              places={places}
+              onSelect={place => { setMapSelected(place); setPickedId(null) }}
+              onClose={() => setShowAI(false)}
             />
           )}
         </AnimatePresence>

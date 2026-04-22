@@ -394,7 +394,7 @@ export default function FriendMapView({ initialUserId, onBack, onAddToMyList }: 
       </div>
 
       {/* ── Map ── */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
         <MapContainer center={[48.8566, 2.3522]} zoom={13}
           style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer
@@ -498,7 +498,17 @@ export default function FriendMapView({ initialUserId, onBack, onAddToMyList }: 
                 <button type="button" onClick={() => openItinerary(selected)} className="font-ui font-medium"
                   style={{ flex: 1, height: '34px', borderRadius: '8px', cursor: 'pointer',
                     background: 'var(--cream)', color: 'var(--bg)', border: 'none', fontSize: '11px', letterSpacing: '0.03em' }}>
-                  📍 Itinéraire
+                  📍 Y aller
+                </button>
+
+                <button type="button" onClick={() => {
+                  const text = `${selected.name}\n${selected.address}\n\nVia Kaki → kaki.app`
+                  if (navigator.share) void navigator.share({ text })
+                  else void navigator.clipboard.writeText(text)
+                }}
+                  style={{ height: '34px', width: '34px', borderRadius: '8px', cursor: 'pointer', flexShrink: 0,
+                    background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: 'none', fontSize: '14px' }}>
+                  ↗
                 </button>
               </div>
             </motion.div>

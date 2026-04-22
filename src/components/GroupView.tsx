@@ -69,6 +69,7 @@ interface Props {
 export default function GroupView({ onBack, myPlaces }: Props) {
   const { user } = useAuth()
   const [rows, setRows] = useState<GroupListRow[]>([])
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [selected, setSelected] = useState<GroupRow | null>(null)
@@ -80,6 +81,15 @@ export default function GroupView({ onBack, myPlaces }: Props) {
   const [cardPlace, setCardPlace] = useState<GroupPlacePin | null>(null)
   const [showAddPicker, setShowAddPicker] = useState(false)
   const [memberLabels, setMemberLabels] = useState<Record<string, string>>({})
+  const [ownPlaces, setOwnPlaces] = useState<Place[]>(myPlaces)
+
+  // Keep ownPlaces in sync with prop and refresh from Supabase when a group is opened
+  useEffect(() => { setOwnPlaces(myPlaces) }, [myPlaces])
+  useEffect(() => {
+    if (!selected || !user) return
+    void supabase.from('places').select('*').eq('user_id', user.id)
+      .then(({ data }) => { if (data) setOwnPlaces((data as PlaceRow[]).map(rowToPlace)) })
+  }, [selected?.id, user?.id])
 
   // ── Votes ──────────────────────────────────────────────────────────────────
   type ProposalWithVotes = ProposalRow & { yeas: number; nays: number; myVote: boolean | null; placeName: string }
@@ -168,6 +178,16 @@ export default function GroupView({ onBack, myPlaces }: Props) {
         })
         .filter((x): x is GroupListRow => x != null)
       setRows(list)
+      // Fetch creator usernames
+      const creatorIds = [...new Set(list.map(r => r.groups.created_by).filter(Boolean))] as string[]
+      if (creatorIds.length > 0) {
+        const { data: urows } = await supabase.from('users').select('id, username').in('id', creatorIds)
+        const names: Record<string, string> = {}
+        for (const u of (urows ?? []) as { id: string; username: string | null }[]) {
+          names[u.id] = u.username?.trim() || u.id.slice(0, 6)
+        }
+        setCreatorNames(names)
+      }
     }
     setLoading(false)
   }, [user])
@@ -177,9 +197,11 @@ export default function GroupView({ onBack, myPlaces }: Props) {
   const loadGroupPins = useCallback(async (g: GroupRow) => {
     setLoadingPins(true)
     setCardPlace(null)
-    const { data, error } = await supabase
+
+    // Step 1: get place_ids + who added them
+    const { data: gpRows, error } = await supabase
       .from('group_places')
-      .select('place_id, added_by, places(*)')
+      .select('place_id, added_by')
       .eq('group_id', g.id)
 
     if (error) {
@@ -189,14 +211,26 @@ export default function GroupView({ onBack, myPlaces }: Props) {
       return
     }
 
-    const list: GroupPlacePin[] = []
-    for (const row of (data ?? []) as unknown as { place_id: string; added_by: string | null; places: PlaceRow | PlaceRow[] | null }[]) {
-      const raw = row.places
-      const placeRow = Array.isArray(raw) ? raw[0] : raw
-      if (!placeRow) continue
-      const p = rowToPlace(placeRow)
-      list.push({ ...p, addedBy: row.added_by })
+    if (!gpRows || gpRows.length === 0) {
+      setPins([])
+      setLoadingPins(false)
+      return
     }
+
+    const gpList = gpRows as { place_id: string; added_by: string | null }[]
+    const placeIds = gpList.map(r => r.place_id)
+    const addedByMap: Record<string, string | null> = Object.fromEntries(gpList.map(r => [r.place_id, r.added_by]))
+
+    // Step 2: query places directly — bypasses join-RLS issue
+    const { data: placeRows } = await supabase
+      .from('places')
+      .select('*')
+      .in('id', placeIds)
+
+    const list: GroupPlacePin[] = (placeRows ?? []).map(r => ({
+      ...rowToPlace(r as PlaceRow),
+      addedBy: addedByMap[r.id] ?? null,
+    }))
     setPins(list)
     setLoadingPins(false)
 
@@ -220,8 +254,8 @@ export default function GroupView({ onBack, myPlaces }: Props) {
   const placeIdsInGroup = useMemo(() => new Set(pins.map(p => p.id)), [pins])
 
   const addablePlaces = useMemo(
-    () => myPlaces.filter(p => !placeIdsInGroup.has(p.id)),
-    [myPlaces, placeIdsInGroup],
+    () => ownPlaces.filter(p => !placeIdsInGroup.has(p.id)),
+    [ownPlaces, placeIdsInGroup],
   )
 
   const handleCreate = async () => {
@@ -251,7 +285,7 @@ export default function GroupView({ onBack, myPlaces }: Props) {
       return
     }
     if (!gid) {
-      setErr('Code d’invitation invalide')
+      setErr("Code d'invitation invalide")
       return
     }
     setJoinCode('')
@@ -320,18 +354,32 @@ export default function GroupView({ onBack, myPlaces }: Props) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="font-ui font-semibold" style={{ fontSize: '14px', color: 'var(--cream)' }}>{selected.name}</p>
               {selected.invite_code && (
-                <button type="button" onClick={() => copyInvite(selected.invite_code)}
-                  className="font-ui"
-                  style={{ marginTop: '4px', fontSize: '10px', color: 'var(--muted)', background: 'var(--surface-3)',
-                    border: '1px solid var(--border)', borderRadius: '8px', padding: '4px 8px', cursor: 'pointer' }}>
-                  Code : {selected.invite_code} · copier
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                  <span className="font-ui"
+                    style={{ fontSize: '10px', color: 'var(--muted)', background: 'var(--surface-3)',
+                      border: '1px solid var(--border)', borderRadius: '8px', padding: '4px 8px',
+                      letterSpacing: '0.1em', fontVariantNumeric: 'tabular-nums' }}>
+                    {selected.invite_code}
+                  </span>
+                  <button type="button" onClick={() => {
+                    const origin = window.location.origin
+                    const url = `${origin}/invite/${selected.invite_code}`
+                    const msg = `Rejoins mon groupe « ${selected.name} » sur Kaki ✦\n${url}`
+                    if (navigator.share) void navigator.share({ title: selected.name, text: msg, url })
+                    else { void navigator.clipboard.writeText(url); setErr('Lien copié !') }
+                  }}
+                    className="font-ui font-medium"
+                    style={{ fontSize: '10px', color: 'var(--bg)', background: 'var(--cream)',
+                      border: 'none', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer' }}>
+                    Partager
+                  </button>
+                </div>
               )}
             </div>
-            <button type="button" onClick={() => setShowAddPicker(true)} disabled={busy || addablePlaces.length === 0}
+            <button type="button" onClick={() => setShowAddPicker(true)} disabled={busy}
               className="font-ui font-medium"
-              style={{ fontSize: '11px', color: 'var(--bg)', background: addablePlaces.length ? 'var(--cream)' : 'rgba(255,255,255,0.15)',
-                border: 'none', borderRadius: '10px', padding: '8px 12px', cursor: addablePlaces.length ? 'pointer' : 'default' }}>
+              style={{ fontSize: '11px', color: 'var(--bg)', background: 'var(--cream)',
+                border: 'none', borderRadius: '10px', padding: '8px 12px', cursor: 'pointer' }}>
               + Lieu
             </button>
           </div>
@@ -379,7 +427,7 @@ export default function GroupView({ onBack, myPlaces }: Props) {
           )}
         </div>
 
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
           <MapContainer center={[48.8566, 2.3522]} zoom={13}
             style={{ height: '100%', width: '100%' }} zoomControl={false}>
             <TileLayer
@@ -402,7 +450,7 @@ export default function GroupView({ onBack, myPlaces }: Props) {
               <motion.div
                 key={cardPlace.id}
                 initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 16, opacity: 0 }}
-                style={{ position: 'absolute', zIndex: 20, bottom: pins.length ? '168px' : '24px', left: '50%', transform: 'translateX(-50%)',
+                style={{ position: 'absolute', zIndex: 20, bottom: pins.length > 0 ? '168px' : '80px', left: '50%', transform: 'translateX(-50%)',
                   width: 'min(300px, calc(100% - 28px))', background: 'rgba(20,21,18,0.97)', backdropFilter: 'blur(20px)',
                   borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 12px 40px rgba(0,0,0,0.65)', padding: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -451,9 +499,20 @@ export default function GroupView({ onBack, myPlaces }: Props) {
             )}
           </AnimatePresence>
 
-          {pins.length > 0 && (
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
-              background: 'linear-gradient(to top, rgba(13,14,11,0.97) 60%, transparent)', padding: '28px 0 0' }}>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
+            background: 'linear-gradient(to top, rgba(13,14,11,0.97) 60%, transparent)', padding: '28px 0 0' }}>
+            {pins.length === 0 && !loadingPins ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px 24px' }}>
+                <button type="button" onClick={() => setShowAddPicker(true)} disabled={busy}
+                  className="font-ui font-medium"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px',
+                    background: 'var(--surface)', border: '1px solid var(--border-2)',
+                    borderRadius: '99px', color: 'var(--cream-dim)', fontSize: '12px', cursor: 'pointer' }}>
+                  <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
+                  Partage un lieu avec le groupe
+                </button>
+              </div>
+            ) : (
               <div style={{ display: 'flex', gap: '10px', padding: '0 16px 20px', overflowX: 'auto', scrollbarWidth: 'none' }}>
                 {pins.map(p => (
                   <button key={p.id} type="button" onClick={() => setCardPlace(cardPlace?.id === p.id ? null : p)}
@@ -475,8 +534,8 @@ export default function GroupView({ onBack, myPlaces }: Props) {
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <AnimatePresence>
@@ -493,7 +552,7 @@ export default function GroupView({ onBack, myPlaces }: Props) {
                   border: '1px solid var(--border)', padding: '20px 16px' }}>
                 <p className="font-ui font-semibold" style={{ fontSize: '14px', color: 'var(--cream)', marginBottom: '12px' }}>Tes lieux à partager</p>
                 {addablePlaces.length === 0 ? (
-                  <p className="font-ui" style={{ fontSize: '12px', color: 'var(--muted)' }}>Rien à ajouter pour l’instant.</p>
+                  <p className="font-ui" style={{ fontSize: '12px', color: 'var(--muted)' }}>Rien à ajouter pour l'instant.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {addablePlaces.map(p => (
@@ -517,43 +576,77 @@ export default function GroupView({ onBack, myPlaces }: Props) {
 
   return (
     <div style={{ height: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ padding: '16px 20px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
           <button type="button" onClick={onBack} className="font-ui"
             style={{ fontSize: '11px', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>←</button>
           <h1 className="font-ui font-semibold" style={{ fontSize: '16px', color: 'var(--cream)' }}>Groupes</h1>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nouveau groupe…"
-            className="font-ui"
-            style={{ flex: 1, background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: '10px',
-              padding: '10px 12px', color: 'var(--cream)', fontSize: '13px', outline: 'none' }} />
-          <button type="button" onClick={() => void handleCreate()} disabled={busy || !newName.trim()}
-            className="font-ui font-medium"
-            style={{ padding: '10px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-              background: 'var(--cream)', color: 'var(--bg)', fontSize: '12px' }}>Créer</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Créer un groupe */}
+          <div style={{ background: 'var(--surface-3)', borderRadius: '16px', padding: '16px', border: '1px solid var(--border)' }}>
+            <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '12px' }}>
+              Nouveau groupe
+            </p>
+            <input value={newName} onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && void handleCreate()}
+              placeholder="Nom du groupe…"
+              className="font-ui"
+              style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: '10px', padding: '10px 14px', color: 'var(--cream)', fontSize: '13px',
+                outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }} />
+            <button type="button" onClick={() => void handleCreate()} disabled={busy || !newName.trim()}
+              className="font-ui font-medium"
+              style={{ width: '100%', padding: '11px', borderRadius: '10px', border: 'none',
+                cursor: busy || !newName.trim() ? 'default' : 'pointer',
+                background: newName.trim() ? 'var(--cream)' : 'rgba(255,255,255,0.08)',
+                color: newName.trim() ? 'var(--bg)' : 'var(--muted)', fontSize: '12px',
+                letterSpacing: '0.06em', opacity: busy ? 0.5 : 1, transition: 'all 0.15s' }}>
+              {busy ? '…' : 'Créer le groupe'}
+            </button>
+          </div>
+
+          {/* Rejoindre */}
+          <div style={{ background: 'var(--surface-3)', borderRadius: '16px', padding: '16px', border: '1px solid var(--border)' }}>
+            <p className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '12px' }}>
+              Rejoindre avec un code
+            </p>
+            <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && void handleJoin()}
+              placeholder="ex : A3F9B2C1"
+              className="font-ui"
+              style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: '10px', padding: '10px 14px', color: 'var(--cream)', fontSize: '13px',
+                outline: 'none', boxSizing: 'border-box', letterSpacing: '0.1em',
+                fontVariantNumeric: 'tabular-nums', marginBottom: '10px' }} />
+            <button type="button" onClick={() => void handleJoin()} disabled={busy || !joinCode.trim()}
+              className="font-ui font-medium"
+              style={{ width: '100%', padding: '11px', borderRadius: '10px',
+                border: joinCode.trim() ? 'none' : '1px solid var(--border)',
+                cursor: busy || !joinCode.trim() ? 'default' : 'pointer',
+                background: joinCode.trim() ? 'var(--cream)' : 'transparent',
+                color: joinCode.trim() ? 'var(--bg)' : 'var(--muted)', fontSize: '12px',
+                letterSpacing: '0.06em', opacity: busy ? 0.5 : 1, transition: 'all 0.15s' }}>
+              Rejoindre
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="Code d’invitation"
-            className="font-ui"
-            style={{ flex: 1, background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: '10px',
-              padding: '10px 12px', color: 'var(--cream)', fontSize: '13px', outline: 'none' }} />
-          <button type="button" onClick={() => void handleJoin()} disabled={busy || !joinCode.trim()}
-            className="font-ui font-medium"
-            style={{ padding: '10px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-              background: 'rgba(255,255,255,0.1)', color: 'var(--cream)', fontSize: '12px' }}>Rejoindre</button>
-        </div>
-
-        {err && <p className="font-ui" style={{ marginTop: '12px', fontSize: '11px', color: '#c97a7a' }}>{err}</p>}
+        {err && (
+          <p className="font-ui" style={{ marginTop: '10px', fontSize: '11px', color: '#c97a7a', lineHeight: 1.5 }}>
+            {err.includes('schema cache') || err.includes('function')
+              ? '⚠ Exécute le script SQL dans Supabase (Dashboard > SQL Editor) pour activer la création de groupes.'
+              : err}
+          </p>
+        )}
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
         {loading ? (
           <p className="font-ui" style={{ fontSize: '13px', color: 'var(--muted)' }}>Chargement…</p>
         ) : rows.length === 0 ? (
-          <p className="font-ui" style={{ fontSize: '13px', color: 'var(--muted)' }}>Tu n’as pas encore de groupe. Crée-en un ou entre un code.</p>
+          <p className="font-ui" style={{ fontSize: '13px', color: 'var(--muted)' }}>Tu n'as pas encore de groupe. Crée-en un ou entre un code.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {rows.map(r => (
@@ -562,7 +655,11 @@ export default function GroupView({ onBack, myPlaces }: Props) {
                 style={{ textAlign: 'left', padding: '14px', borderRadius: '14px', border: '1px solid var(--border)',
                   background: 'var(--surface-3)', color: 'var(--cream)', cursor: 'pointer' }}>
                 <span style={{ fontSize: '14px', fontWeight: 600 }}>{r.groups.name}</span>
-                <span style={{ display: 'block', fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{r.role}</span>
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
+                  {r.groups.created_by && creatorNames[r.groups.created_by]
+                    ? `Créé par @${creatorNames[r.groups.created_by]}`
+                    : r.role === 'admin' ? 'Créé par vous' : 'Membre'}
+                </span>
               </button>
             ))}
           </div>

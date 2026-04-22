@@ -96,11 +96,12 @@ export default function ProfileView({ onBack, isOnboarding = false, onOnboarding
   const rewardsConfig = [
     { pts: 5,  label: 'Ajouter un lieu' },
     { pts: 3,  label: 'Évaluer (aimé / bof)' },
-    { pts: 2,  label: 'Ajouter une note' },
+    { pts: 10, label: 'Compléter une fiche' },
+    { pts: 15, label: 'Ajouter une photo' },
     { pts: 20, label: 'Confirmer une réservation' },
     { pts: 50, label: 'Inviter un ami inscrit' },
   ]
-  const nextReward = 100
+  const nextReward = 1000
   const progress = Math.min((points % nextReward) / nextReward, 1)
 
   return (

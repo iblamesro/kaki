@@ -118,7 +118,17 @@ export default function FeedView({ onBack, onViewPlace }: Props) {
         {loading ? (
           <p className="font-ui" style={{ padding: '32px 20px', fontSize: '13px', color: 'var(--muted)' }}>Chargement…</p>
         ) : error ? (
-          <p className="font-ui" style={{ padding: '32px 20px', fontSize: '13px', color: '#c97a7a' }}>{error}</p>
+          <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+            <p style={{ fontSize: '24px', marginBottom: '14px', opacity: 0.25 }}>◎</p>
+            <p className="font-ui font-medium" style={{ fontSize: '13px', color: 'var(--cream)', marginBottom: '8px' }}>
+              {error.includes('recursion') ? 'Configuration requise' : 'Erreur de chargement'}
+            </p>
+            <p className="font-ui" style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.65, maxWidth: '280px', margin: '0 auto' }}>
+              {error.includes('recursion')
+                ? 'Exécute le bloc "FIX CRITIQUE" du script SQL dans Supabase pour activer le fil d\'activité.'
+                : error}
+            </p>
+          </div>
         ) : feed.length === 0 ? (
           <div style={{ padding: '48px 20px', textAlign: 'center' }}>
             <p style={{ fontSize: '28px', marginBottom: '12px', opacity: 0.3 }}>◎</p>

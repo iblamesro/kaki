@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Place } from '../types'
+import ReservationForm from './ReservationForm'
 
 interface Props {
   places: Place[]
+  userId: string
   onResult: (place: Place) => void
   onClose: () => void
 }
@@ -49,7 +51,7 @@ function formatGCalDate(d: Date) {
   return d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'
 }
 
-export default function CeSoirModal({ places, onResult, onClose }: Props) {
+export default function CeSoirModal({ places, userId, onResult, onClose }: Props) {
   const [step,           setStep]           = useState<Step>('humeur')
   const [humeur,         setHumeur]         = useState<string | null>(null)
   const [proximite,      setProximite]      = useState<string | null>(null)
@@ -61,6 +63,7 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
   const [showPlan,       setShowPlan]       = useState(false)
   const [selectedGuests, setSelectedGuests] = useState<string[]>([])
   const [copied,         setCopied]         = useState(false)
+  const [showReservation,setShowReservation] = useState(false)
 
   const wishlist = places.filter(p => p.status === 'wishlist')
 
@@ -103,11 +106,6 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
     onClose()
   }
 
-  const openReservation = () => {
-    if (!result) return
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(result.name + ' Paris réserver table')}`, '_blank')
-  }
-
   const openCalendar = () => {
     if (!result || !planDate) return
     const dt  = new Date(planDate)
@@ -129,19 +127,19 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
     const fTime = dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     const guestNames = selectedGuests.map(id => FRIENDS_LIST.find(f => f.id === id)?.name).filter(Boolean).join(', ')
     const addr = result.address.split(',').slice(0, 2).join(',')
-    const text = [
+    const parts = [
       `✦ ${result.name}`,
-      ``,
-      `${addr}`,
+      addr,
       `${fDate} à ${fTime}`,
-      guestNames ? `Avec ${guestNames}` : '',
+      guestNames ? `avec ${guestNames}` : null,
       ``,
-      `Réserve ta place 🍷`,
-    ].filter(l => l !== undefined).join('\n')
+      `Rejoins-moi sur Kaki → kaki.app`,
+    ].filter(Boolean) as string[]
+    const text = parts.join('\n')
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: result.name, text })
+        await navigator.share({ text })
       } else {
         await navigator.clipboard.writeText(text)
         setCopied(true)
@@ -154,7 +152,7 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
     setSelectedGuests(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
 
   const reset = () => {
-    setStep('humeur'); setResult(null); setPlanDate(''); setShowPlan(false); setSelectedGuests([])
+    setStep('humeur'); setResult(null); setPlanDate(''); setShowPlan(false); setSelectedGuests([]); setShowReservation(false)
   }
 
   // ── Shared button style ────────────────────────────────────────────────────
@@ -299,7 +297,13 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
             )}
 
             {/* ── Résultat ── */}
-            {step === 'result' && (
+            {step === 'result' && showReservation && result && (
+              <motion.div key="reservation" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                <ReservationForm place={result} userId={userId} onBack={() => setShowReservation(false)} />
+              </motion.div>
+            )}
+
+            {step === 'result' && !showReservation && (
               <motion.div key="result" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
                 {spinning ? (
                   <div style={{ textAlign: 'center', padding: '36px 0' }}>
@@ -366,7 +370,7 @@ export default function CeSoirModal({ places, onResult, onClose }: Props) {
 
                     {/* Secondary actions — no emojis */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                      <button onClick={openReservation} className="font-ui font-medium" style={secondaryBtn}>
+                      <button onClick={() => setShowReservation(true)} className="font-ui font-medium" style={secondaryBtn}>
                         Réserver
                       </button>
                       <button onClick={() => setShowPlan(!showPlan)} className="font-ui font-medium"
